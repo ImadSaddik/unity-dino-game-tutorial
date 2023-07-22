@@ -7,9 +7,9 @@ public class PlayerAgent : Agent
 {
     private CharacterController character;
     private Vector3 direction;
-
     public float jumpForce = 8f;
     public float gravity = 9.81f * 2f;
+    private bool neverJumped = true;
 
     public override void Initialize()
     {
@@ -25,12 +25,17 @@ public class PlayerAgent : Agent
     {
         GameObject closestObstacle = getClosestObstacle();
 
+        sensor.AddObservation(transform.position.x);
         sensor.AddObservation(transform.position.y);
+
+        sensor.AddObservation(getObstacleXPosition(closestObstacle));
         sensor.AddObservation(getObstacleYPosition(closestObstacle));
+
         sensor.AddObservation(getObstacleWidth(closestObstacle));
         sensor.AddObservation(getObstacleHeight(closestObstacle));
-        sensor.AddObservation(GameManagerAgent.Instance.gameSpeed);
+
         sensor.AddObservation(character.isGrounded);
+        sensor.AddObservation(GameManagerAgent.Instance.gameSpeed);
     }
 
     private GameObject getClosestObstacle()
@@ -55,16 +60,25 @@ public class PlayerAgent : Agent
     private float getObstacleYPosition(GameObject obstacle)
     {
         if (obstacle == null) {
-            return 0f;
+            return -1f;
         } else {
             return obstacle.transform.position.y;
+        }
+    }
+
+    private float getObstacleXPosition(GameObject obstacle)
+    {
+        if (obstacle == null) {
+            return -1f;
+        } else {
+            return obstacle.transform.position.x;
         }
     }
 
     private float getObstacleWidth(GameObject obstacle)
     {
         if (obstacle == null) {
-            return 0f;
+            return -1f;
         } else {
             return obstacle.GetComponent<BoxCollider>().size.x;
         }
@@ -73,7 +87,7 @@ public class PlayerAgent : Agent
     private float getObstacleHeight(GameObject obstacle)
     {
         if (obstacle == null) {
-            return 0f;
+            return -1f;
         } else {
             return obstacle.GetComponent<BoxCollider>().size.y;
         }
@@ -88,13 +102,16 @@ public class PlayerAgent : Agent
         {
             direction = Vector3.down;
 
-            if (jumpAction == 1) {
+            if (jumpAction == 1 && neverJumped) {
                 direction = Vector3.up * jumpForce;
+                neverJumped = false;
+            } else if (jumpAction == 0) {
+                neverJumped = true;
             }
         }
 
         character.Move(direction * Time.deltaTime);
-        AddReward(1e-4f);
+        AddReward(.001f);
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -113,6 +130,8 @@ public class PlayerAgent : Agent
         if (other.CompareTag("Obstacle")) {
             AddReward(-1f);
             GameManagerAgent.Instance.GameOver();
+        } else if (other.CompareTag("playerPassChecker")) {
+            // AddReward(.5f);
         }
     }
 }
